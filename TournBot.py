@@ -6,6 +6,7 @@ API_URL = "https://fortniteapi.io/v1/events/list/active?region=EU" # regions: en
 API_KEY = "APIKEYHERE!!!!!!!!!!!!!!!!!!!!!!!"
 HEADERS = {"Authorization": API_KEY}
 
+no_torn = 5 # number of tournaments you want sent
 
 notified_windows = set()
 
@@ -132,7 +133,7 @@ def process_tournaments():
     # Send notifications for the next 5 tournaments
     count = 0
     for tournament_name, begin_time, window_id, poster_url, description, tournament_link, is_live, is_started, rank_emoji in upcoming_tournaments:
-        if count >= 5:
+        if count >= no_torn:
             break
         send_notification(tournament_name, begin_time, poster_url, description, tournament_link, is_live, is_started, rank_emoji)
         notified_windows.add(window_id)  # Mark as notified
