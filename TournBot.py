@@ -3,14 +3,32 @@ from datetime import datetime
 
 # API details
 API_URL = "https://fortniteapi.io/v1/events/list/active?region=EU" # regions: en, fr, ar, de, es, es-419, it, ja, ko, pl, pt-br, ru, tr
-API_KEY = "APIKEYHERE!!!!!!!!!!!!!!!!!!!!!!!"
+API_KEY = "api key"
 HEADERS = {"Authorization": API_KEY}
 
-no_torn = 5 # number of tournaments you want sent
+webhook_url = "Webhook here"
 
+role_id = "ping id here"
+role_mention = f"<@&{role_id}>"
+messageaa = f"{role_mention}"
+
+data = {
+    "content": messageaa
+}
+
+response = requests.post(webhook_url, json=data)
+
+# Check if the request was successful
+if response.status_code == 204:
+    print("Message sent successfully!")
+else:
+    print(f"Failed to send message: {response.status_code}, {response.text}")
+
+
+# Set to track notified windows
 notified_windows = set()
 
-
+# Discord Emojis for rank categories
 rank_emojis = {
     "elite": "<:Elite:1320445236882702426>",  # elite
     "champ": "<:Champion:1320445329413247086>",  # champion
@@ -25,18 +43,16 @@ rank_emojis = {
 
 # Notification function
 def send_notification(tournament_name, start_time, poster_url, description, tournament_link, is_live, is_started, rank_emoji):
-    webhook_url = "DISCORD WEBHOOK HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-    
 
+    # Use Discord's <t:timestamp:R> format for relative time if live
     formatted_time = f"<t:{int(start_time.timestamp())}:R>" if is_live else f"<t:{int(start_time.timestamp())}:d>"
-    
 
+    # Set the appropriate text based on whether the tournament has already started or is upcoming
     status_text = "Tournament Ends" if is_started else "Tournament Starts"
-    
+
     embed = {
         "embeds": [{
             "title": tournament_name,
-            "url": tournament_link,
             "description": description,
             "color": 0x1F8A70,  # Green color
             "timestamp": start_time.isoformat(),
@@ -88,12 +104,12 @@ def process_tournaments():
     # Collect both live and upcoming tournaments with their windows
     for tournament in tournaments:
         windows = tournament.get("windows", [])
-        tournament_name = tournament.get("name_line1", "Unknown Tournament")  
+        tournament_name = tournament.get("name_line1", "Unknown Tournament")  # Ensure we use name_line1
         tournament_full_name = tournament_name + " " + tournament.get("name_line2", "")
 
         description = tournament.get("short_description", "No description available.")
         poster_url = tournament.get("poster", "")  # Get the poster URL
-        tournament_link = f"https://www.epicgames.com/fortnite/competitive/{tournament.get('id')}"  # Link to the tournament page -- doesnt work lmao
+        tournament_link = f"https://www.epicgames.com/fortnite/competitive/{tournament.get('id')}"  # Link to the tournament page
 
         # Determine rank emoji based on tournament name
         rank_emoji = rank_emojis["unranked"]  # default unranked emoji
@@ -130,10 +146,10 @@ def process_tournaments():
     # Sort the tournaments by their start time (earliest first)
     upcoming_tournaments.sort(key=lambda x: x[1])
 
-    # Send notifications for the next 5 tournaments
+    # Send notifications for the next 7 tournaments
     count = 0
     for tournament_name, begin_time, window_id, poster_url, description, tournament_link, is_live, is_started, rank_emoji in upcoming_tournaments:
-        if count >= no_torn:
+        if count >= 7:
             break
         send_notification(tournament_name, begin_time, poster_url, description, tournament_link, is_live, is_started, rank_emoji)
         notified_windows.add(window_id)  # Mark as notified
