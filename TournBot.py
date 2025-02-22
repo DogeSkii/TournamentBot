@@ -1,5 +1,5 @@
 # REDIRECTS ALL TRAFFIC TO TEST HOOK
-TESTMODE = True
+TESTMODE = False
 
 import requests
 from dotenv import load_dotenv
