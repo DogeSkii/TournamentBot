@@ -1,29 +1,33 @@
+# REDIRECTS ALL TRAFFIC TO TEST HOOK
+TESTMODE = True
+
 import requests
-from datetime import datetime
+from dotenv import load_dotenv
+from os import getenv
+from datetime import timezone, datetime
+from time import sleep
+
+# Load environment variables from .env file
+load_dotenv()
 
 # API details
-API_URL = "https://fortniteapi.io/v1/events/list/active?region=EU" # regions: en, fr, ar, de, es, es-419, it, ja, ko, pl, pt-br, ru, tr
-API_KEY = "api key"
+API_URL = "https://fortniteapi.io/v1/events/list?lang=en&region=EU"
+API_KEY = getenv("API_KEY")
 HEADERS = {"Authorization": API_KEY}
 
-webhook_url = "Webhook here"
+# Webhook URLs
+webhook_url = getenv("MAIN-HOOK")
+testhook = getenv("TEST-HOOK")
+loghook = getenv("LOG-HOOK")
 
-role_id = "ping id here"
+# Discord role mention
+role_id = "1329808964220616735"
 role_mention = f"<@&{role_id}>"
 messageaa = f"{role_mention}"
 
 data = {
     "content": messageaa
 }
-
-response = requests.post(webhook_url, json=data)
-
-# Check if the request was successful
-if response.status_code == 204:
-    print("Message sent successfully!")
-else:
-    print(f"Failed to send message: {response.status_code}, {response.text}")
-
 
 # Set to track notified windows
 notified_windows = set()
@@ -41,8 +45,11 @@ rank_emojis = {
     "unranked": "<:Unranked:1320445396530757663>"  # unranked
 }
 
+ping_sent = False
+
 # Notification function
 def send_notification(tournament_name, start_time, poster_url, description, tournament_link, is_live, is_started, rank_emoji):
+    global ping_sent
 
     # Use Discord's <t:timestamp:R> format for relative time if live
     formatted_time = f"<t:{int(start_time.timestamp())}:R>" if is_live else f"<t:{int(start_time.timestamp())}:d>"
@@ -53,6 +60,7 @@ def send_notification(tournament_name, start_time, poster_url, description, tour
     embed = {
         "embeds": [{
             "title": tournament_name,
+            "url": tournament_link,
             "description": description,
             "color": 0x1F8A70,  # Green color
             "timestamp": start_time.isoformat(),
@@ -75,9 +83,21 @@ def send_notification(tournament_name, start_time, poster_url, description, tour
     }
 
     try:
+        if TESTMODE:
+            webhook_url = testhook
+        # Send ping ONCE, this script sends a ping every time it runs
+        if not ping_sent:
+            requests.post(webhook_url, json=data)
+            ping_sent = True
         response = requests.post(webhook_url, json=embed)
         response.raise_for_status()
+
         print(f"Notification sent for tournament '{tournament_name}'.")
+        print(f"Time: {start_time}")
+        # Send log message on webhook - NO EMBED
+        requests.post(loghook, json={"content": f"Notification sent for tournament '{tournament_name}'.\nTime: {start_time}"})
+        # Wait 2 seconds before sending another message
+        sleep(2)
     except requests.RequestException as e:
         print(f"Error sending notification for '{tournament_name}': {e}")
 
@@ -93,12 +113,13 @@ def fetch_tournaments():
 
 # Function to process tournaments
 def process_tournaments():
+    start_time = datetime.now(timezone.utc)
     tournaments = fetch_tournaments()
     if not tournaments:
         print("No tournaments found.")
         return
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     upcoming_tournaments = []
 
     # Collect both live and upcoming tournaments with their windows
@@ -146,7 +167,7 @@ def process_tournaments():
     # Sort the tournaments by their start time (earliest first)
     upcoming_tournaments.sort(key=lambda x: x[1])
 
-    # Send notifications for the next 7 tournaments
+    # Send notifications for the next 5 tournaments
     count = 0
     for tournament_name, begin_time, window_id, poster_url, description, tournament_link, is_live, is_started, rank_emoji in upcoming_tournaments:
         if count >= 7:
@@ -154,6 +175,12 @@ def process_tournaments():
         send_notification(tournament_name, begin_time, poster_url, description, tournament_link, is_live, is_started, rank_emoji)
         notified_windows.add(window_id)  # Mark as notified
         count += 1
+
+    end_time = datetime.now(timezone.utc)
+    duration = end_time - start_time
+    duration_seconds = duration.total_seconds()
+    log_message = f"Script finished running in {duration_seconds:.3f} seconds."
+    requests.post(loghook, json={"content": log_message})
 
 if __name__ == "__main__":
     process_tournaments()
